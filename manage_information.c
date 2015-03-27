@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <mysql.h>
 #include "project.h"
 
@@ -12,7 +13,7 @@ void manage_information()
     int option= -1; //initialize with a invalid value
     while(1)
     {
-        printf("进入学生基本信息管理界面\n");
+        printf("欢迎进入学生基本信息管理界面\n");
         printf("1):添加学生信息\n"
                "2):修改学生信息\n"
                "3):删除学生信息\n"
@@ -73,47 +74,85 @@ static void add_information()
 
     //INSERT INTO student VALUES('id','name','sex','class',
     //'department','phone_number','family_address')
-    snprintf(insert_statement, sizeof(insert_statement),
+    sprintf(insert_statement,
             "%s'%s','%s','%s','%s','%s','%s','%s')",
             mysql_insert, id, name, sex, class,
             department, phone_number, family_address);
 
     if(mysql_query(&sql_connection, insert_statement))
-    {
-        fprintf(stderr,"INSERT error %d: %s\n", mysql_errno(&sql_connection),
-                mysql_error(&sql_connection));
-        return;
-    }
+        fprintf(stderr,"insert failed: %s\n", mysql_error(&sql_connection));
     else
     {
-        printf("Successfully insert student information:\n");
-        char select_statement[45];
-        select_statement[0] = 0;
-        strcat(select_statement, "SELECT * FROM student WHERE 学号 = ");
-        strcat(select_statement, id);
-        if(mysql_query(&sql_connection, select_statement))
-        {
-            fprintf(stderr,"Error %d: %s\n", mysql_errno(&sql_connection),
-                    mysql_error(&sql_connection));
-            return;
-        }
-
-        MYSQL_RES *res_ptr = mysql_store_result(&sql_connection);
-        if(!res_ptr)
-            fprintf(stderr,"Error %d: %s\n", mysql_errno(&sql_connection),
-                    mysql_error(&sql_connection));
-        MYSQL_ROW row = mysql_fetch_row(res_ptr);
-        unsigned int num_fields = mysql_num_fields(res_ptr);
-        for(unsigned int i = 0; i < num_fields; i++)
-            printf(" %s ", row[i] ? row[i] : "NULL");
-        mysql_free_result(res_ptr);
-        printf("\n");
+        printf("Successfully insert student information\n");
+        printf("学号: %s, 姓名: %s, 性别: %s, 班级: %s, 系: %s,联系电话: %s, 籍贯: %s\n",
+                id, name, sex, class, department, phone_number, family_address);
     }
 }
 
 static void update_information()
 {
-    printf("update information\n");
+    char id[11];
+    char select_statement[50] = "SELECT * FROM student WHERE 学号 = ";
+
+    while(1)
+    {
+        printf("请输入要修改信息的学生的学号: ");
+        fgets_remove_newline(id, 11, stdin);
+        strcat(select_statement, id);
+
+        if(mysql_query(&sql_connection, select_statement))
+            fprintf(stderr, "没有学号为%s的学生\n", id);
+        else
+        {
+            MYSQL_RES *result = mysql_store_result(&sql_connection);
+            if(!result)
+                fprintf(stderr,"%s\n", mysql_error(&sql_connection));
+            MYSQL_ROW row = mysql_fetch_row(result);
+            MYSQL_FIELD *fields = mysql_fetch_fields(result);
+            unsigned int num_fields = mysql_num_fields(result);
+            unsigned long *field_lengths = mysql_fetch_lengths(result);
+            //21 is the largest length of fields(籍贯)
+            char new_info[num_fields][21];
+            printf("对于每一项信息，如果要修改则输入新的信息，否则直接回车跳过相应的项\n");
+            for(unsigned int i = 0; i < num_fields; ++i)
+            {
+                printf("%s[%s,l:%ld]: ", fields[i].name, row[i] ? row[i] : "NULL",
+                        field_lengths[i]);
+                fgets_remove_newline(new_info[i], field_lengths[i] + 1, stdin);
+            }
+            mysql_free_result(result);
+
+            //construct sql update statement
+            //safe size = (about)150 = the sum of the length of all fields and their names
+            //20,6,10,6,13,6,3,6,3,3,20,12,11,6,25
+            char update_statement[160] = "UPDATE student set ";
+            for(unsigned int i = 0; i < num_fields; ++i)
+            {
+                if(new_info[i][0] != 0)
+                {
+                    char col_name_value_pair[fields[i].name_length
+                                           + field_lengths[i] + 1];
+                    sprintf(col_name_value_pair, "%s='%s',",
+                            fields[i].name, new_info[i]);
+                    printf("col_name_value_pair is '%s'\n", col_name_value_pair);
+                    strcat(update_statement, col_name_value_pair);
+                }
+            }
+            //delete the trailing comma
+            update_statement[strlen(update_statement) - 1] = 0;
+
+            if(mysql_query(&sql_connection, update_statement))
+                fprintf(stderr,"update failed: %s\n", mysql_error(&sql_connection));
+            else
+                printf("update successfully\n");
+        }
+
+        printf("继续修改学生信息？(y/n): ");
+        char answer = getchar();
+        clean_input_stream();
+        if(toupper(answer) != 'Y')
+            break;
+    }
 }
 
 static void delete_information()

@@ -11,8 +11,7 @@ MYSQL_COMPILE = $(shell mysql_config --cflags)
 MYSQL_LINK = $(shell mysql_config --libs)
 
 a.out: main.o manage_information.o manage_score.o helper.o statistic.o system_setting.o
-# $(CC) -o $@ $(MYSQL_LINK) $? 这样居然不可以！！！！
-	$(CC) -o $@ $? $(MYSQL_LINK)
+	$(CC) -o $@ $^ $(MYSQL_LINK)
 main.o: main.c project.h
 	$(CC) -o $@ $(CFLAGS) -c $(MYSQL_COMPILE) main.c
 manage_information.o: manage_information.c project.h

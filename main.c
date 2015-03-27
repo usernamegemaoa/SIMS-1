@@ -49,11 +49,11 @@ int main()
                 manage_score();
                 break;
             case 3:
-                /* statistic(); */
-                /* break; */
+                statistic();
+                break;
             case 4:
-                /* system_setting(); */
-                /* break; */
+                system_setting();
+                break;
             case 5:
                 printf("再见！欢迎下次继续使用该系统\n");
                 mysql_close(&sql_connection);
@@ -74,8 +74,7 @@ static void login_database(const char* user_name, const char* password)
                     password, "CExperiment", 0, NULL, 0))
     {
         fprintf(stderr, "login database failed\n");
-        fprintf(stderr,"Error %d: %s\n", mysql_errno(&sql_connection),
-                mysql_error(&sql_connection));
+        fprintf(stderr,"%s\n", mysql_error(&sql_connection));
         exit (EXIT_FAILURE);
     }
     if(mysql_set_character_set(&sql_connection, "utf8"))
