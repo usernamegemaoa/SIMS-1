@@ -57,47 +57,56 @@ static void add_information()
         +sizeof(class)+sizeof(department)
         +sizeof(phone_number)+sizeof(family_address)];
 
-    printf("请输入学生信息\n学号: ");
-    fgets_remove_newline(id, 11, stdin);
-    printf("姓名: ");
-    fgets_remove_newline(name, 15, stdin);
-    printf("性别(男/女): ");
-    fgets_remove_newline(sex, 4, stdin);
-    printf("班级: ");
-    fgets_remove_newline(class, 4, stdin);
-    printf("系名: ");
-    fgets_remove_newline(department, 25, stdin);
-    printf("联系电话: ");
-    fgets_remove_newline(phone_number, 12, stdin);
-    printf("籍贯: ");
-    fgets_remove_newline(family_address, 31, stdin);
-
-    //INSERT INTO student VALUES('id','name','sex','class',
-    //'department','phone_number','family_address')
-    sprintf(insert_statement,
-            "%s'%s','%s','%s','%s','%s','%s','%s')",
-            sql_insert_header, id, name, sex, class,
-            department, phone_number, family_address);
-
-    if(mysql_query(&sql_connection, insert_statement))
-        fprintf(stderr,"insert failed: %s\n", mysql_error(&sql_connection));
-    else
+    while(1)
     {
-        printf("Successfully insert student information\n");
-        printf("学号: %s, 姓名: %s, 性别: %s, 班级: %s, 系: %s,联系电话: %s, 籍贯: %s\n",
-                id, name, sex, class, department, phone_number, family_address);
+        printf("请输入学生信息\n学号: ");
+        fgets_remove_newline(id, 11, stdin);
+        printf("姓名: ");
+        fgets_remove_newline(name, 15, stdin);
+        printf("性别(男/女): ");
+        fgets_remove_newline(sex, 4, stdin);
+        printf("班级: ");
+        fgets_remove_newline(class, 4, stdin);
+        printf("系名: ");
+        fgets_remove_newline(department, 25, stdin);
+        printf("联系电话: ");
+        fgets_remove_newline(phone_number, 12, stdin);
+        printf("籍贯: ");
+        fgets_remove_newline(family_address, 31, stdin);
+
+        //INSERT INTO student VALUES('id','name','sex','class',
+        //'department','phone_number','family_address')
+        sprintf(insert_statement,
+                "%s'%s','%s','%s','%s','%s','%s','%s')",
+                sql_insert_header, id, name, sex, class,
+                department, phone_number, family_address);
+
+        if(mysql_query(&sql_connection, insert_statement))
+            fprintf(stderr,"insert failed: %s\n", mysql_error(&sql_connection));
+        else
+        {
+            printf("Successfully insert student information\n");
+            printf("学号: %s, 姓名: %s, 性别: %s, 班级: %s, 系: %s,联系电话: %s, 籍贯: %s\n",
+                    id, name, sex, class, department, phone_number, family_address);
+        }
+        printf("继续添加学生信息？(y/n): ");
+        char answer = getchar();
+        clean_input_stream();
+        if(toupper(answer) != 'Y')
+            break;
     }
 }
 
 static void update_information()
 {
+    char *sql_select_header = "SELECT * FROM student WHERE 学号 = ";
     while(1)
     {
         char id[11];
-        char select_statement[50] = "SELECT * FROM student WHERE 学号 = ";
+        char select_statement[50];
         printf("请输入要修改信息的学生的学号: ");
         fgets_remove_newline(id, 11, stdin);
-        strcat(select_statement, id);
+        sprintf(select_statement, "%s'%s'", sql_select_header, id);
 
         if(mysql_query(&sql_connection, select_statement))
             fprintf(stderr, "%s\n", mysql_error(&sql_connection));
@@ -129,10 +138,12 @@ static void update_information()
                 //safe size = (about)150 = the sum of the length of all fields and their names
                 //20,6,10,6,13,6,3,6,3,3,20,12,11,6,25
                 char update_statement[160] = "UPDATE student set ";
+                int need_update = 0;
                 for(unsigned int i = 0; i < num_fields; ++i)
                 {
                     if(new_info[i][0] != 0)
                     {
+                        need_update = 1;
                         char col_name_value_pair[fields[i].name_length
                             + field_lengths[i] + 1];
                         sprintf(col_name_value_pair, "%s='%s',",
@@ -141,14 +152,21 @@ static void update_information()
                         strcat(update_statement, col_name_value_pair);
                     }
                 }
-                //delete the trailing comma
-                update_statement[strlen(update_statement) - 1] = 0;
 
-                if(mysql_query(&sql_connection, update_statement))
-                    fprintf(stderr,"update failed: %s\n",
-                            mysql_error(&sql_connection));
+                if(need_update)
+                {
+                    //delete the trailing comma
+                    update_statement[strlen(update_statement) - 1] = 0;
+                    printf("update statement is %s\n", update_statement);
+
+                    if(mysql_query(&sql_connection, update_statement))
+                        fprintf(stderr,"update failed: %s\n",
+                                mysql_error(&sql_connection));
+                    else
+                        printf("update successfully\n");
+                }
                 else
-                    printf("update successfully\n");
+                    printf("没有修改信息，无须更新.\n");
             }
             mysql_free_result(result);
         }
