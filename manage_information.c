@@ -89,7 +89,7 @@ static void add_information()
             printf("学号: %s, 姓名: %s, 性别: %s, 班级: %s, 系: %s,联系电话: %s, 籍贯: %s\n",
                     id, name, sex, class, department, phone_number, family_address);
         }
-        printf("继续添加学生信息？(y/n): ");
+        printf("继续添加其他学生信息？(y/n): ");
         char answer = getchar();
         clean_input_stream();
         if(toupper(answer) != 'Y')
@@ -171,7 +171,7 @@ static void update_information()
             mysql_free_result(result);
         }
 
-        printf("继续修改学生信息？(y/n): ");
+        printf("继续修改其他学生信息？(y/n): ");
         char answer = getchar();
         clean_input_stream();
         if(toupper(answer) != 'Y')
@@ -184,32 +184,20 @@ static void delete_information()
     while(1)
     {
         char id[12];
-        char select_statement[39+12] = "SELECT * FROM student WHERE 学号 = '";
         char delete_statement[34+12] = "DELETE FROM student WHERE 学号 = '";
         printf("请输入要删除学生的学号: ");
         fgets_remove_newline(id, 11, stdin);
-        id[strlen(id) + 1] = 0;
-        //add a '(quotation)
-        id[strlen(id)] = '\'';
-        printf("id is %s\n", id);
-        strcat(select_statement, id);
-        MYSQL_RES *result = mysql_store_result(&sql_connection);
-        if(!result)
-            fprintf(stderr,"%s\n", mysql_error(&sql_connection));
-        //if the result is empty
-        else if(!mysql_num_rows(result))
+        strcat(delete_statement, id);
+        //add a closing '(quotation)
+        strcat(delete_statement, "'");
+        if(mysql_query(&sql_connection, delete_statement))
+            fprintf(stderr,"delete failed: %s\n", mysql_error(&sql_connection));
+        else if(!mysql_affected_rows(&sql_connection))
             fprintf(stderr, "没有学号为%s的学生\n", id);
         else
-        {
-            strcat(delete_statement, id);
-            if(mysql_query(&sql_connection, delete_statement))
-                fprintf(stderr,"delete failed: %s\n", mysql_error(&sql_connection));
-            else
-                printf("delete successfully.\n");
-        }
-        mysql_free_result(result);
+            printf("delete successfully.\n");
 
-        printf("继续删除学生信息？(y/n): ");
+        printf("继续删除其他学生信息？(y/n): ");
         char answer = getchar();
         clean_input_stream();
         if(toupper(answer) != 'Y')
