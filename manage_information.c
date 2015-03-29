@@ -10,10 +10,10 @@ static void delete_information();
 
 void manage_information()
 {
+    printf("欢迎进入学生基本信息管理界面\n");
     while(1)
     {
         int option= -1; //initialize with a invalid value
-        printf("欢迎进入学生基本信息管理界面\n");
         printf("1):添加学生信息\n"
                "2):修改学生信息\n"
                "3):删除学生信息\n"
