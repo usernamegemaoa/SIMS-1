@@ -27,9 +27,9 @@ int main()
     /* login_database(user_name, password); */
     login_database("mysql", "mysql");
 
-    int option = -1; //initialize with a invalid value
     while(1)
     {
+        int option = -1; //initialize with a invalid value
         printf("1):学生基本资料管理\n"
                "2):学生成绩管理\n"
                "3):统计查询\n"
