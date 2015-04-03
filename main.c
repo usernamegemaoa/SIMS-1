@@ -17,7 +17,6 @@ int main()
     /* char user_name[41]; */
     /* char password[21]; */
 
-    printf("欢迎使用xx大学学生信息管理系统\n");
     /* printf("请输入用户名： "); */
     /* fgets_remove_newline(user_name, 41, stdin); */
     /* printf("请输入密码: "); */
@@ -30,11 +29,12 @@ int main()
     while(1)
     {
         int option = -1; //initialize with a invalid value
-        printf("1):学生基本资料管理\n"
-               "2):学生成绩管理\n"
-               "3):统计查询\n"
-               "4):系统设置\n"
-               "5):退出系统\n");
+        printf("欢迎使用xx大学学生信息管理系统\n");
+        printf("    1):学生基本资料管理\n"
+               "    2):学生成绩管理\n"
+               "    3):统计查询\n"
+               "    4):系统设置\n"
+               "    5):退出系统\n");
         printf("请选择合适的选项(输入相应的数字): ");
         scanf("%d", &option);
         char c;
