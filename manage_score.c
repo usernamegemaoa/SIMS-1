@@ -160,6 +160,7 @@ static void change_or_query_score(int option)
                     printf("    %d. %s %s分\n", (i + 1), row[0], row[2]);
                     row = mysql_fetch_row(result);
                 }
+            }
                 if(option == 2) //query score
                     return;
                 else //update or delete score
@@ -228,7 +229,6 @@ static void change_or_query_score(int option)
                             fprintf(stderr, "取消删除成绩\n");
                     }
                 }
-            }
         }
         mysql_free_result(result);
     }
