@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 void clean_input_stream()
@@ -10,8 +11,10 @@ void clean_input_stream()
 
 void fgets_remove_newline(char *s, int size, FILE *stream)
 {
-    if(!fgets(s, size, stream))
+    if(!fgets(s, size, stream)) {
         fprintf(stderr, "Get user input failed\n");
+        exit(1);
+    }
     size_t length = strlen(s);
     /*
      * when the last character is '\n' which means the input buffer is clean

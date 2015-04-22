@@ -1,6 +1,406 @@
 #include "project.h"
+#include <string.h>
+#include <ctype.h>
+
+static void query_score();
+static void query_info();
 
 void statistic()
 {
-    printf("statistic\n");
+    while(1) {
+        int option = -1; //initialize with a invalid value
+        printf("    + + + + + + + + + + + + + + +\n"
+               "    +    欢迎进入统计查询界面   +\n"
+               "    +                           +\n"
+               "    +      1):学生信息查询      +\n"
+               "    +      2):成绩统计查询      +\n"
+               "    +      3):返回上一级        +\n"
+               "    + + + + + + + + + + + + + + +\n");
+        printf("请选择合适的选项(输入相应的数字): ");
+        scanf("%d", &option);
+        clean_input_stream();
+        switch(option) {
+            case 1:
+                query_info();
+                break;
+            case 2:
+                query_score();
+                break;
+            case 3:
+                return;
+            default:
+                printf("输入有误，请重新输入\n");
+                break;
+        }
+    }
+}
+
+static void query_info()
+{
+    char speciality[SPECIALITY_LEN + 1] = "";
+    char class[CLASS_LEN + 1] = "";
+    char stu_name[STU_NAME_LEN + 1] = "";
+    char id[ID_LEN + 1] = "";
+    char *select_student_header = "SELECT * FROM student";
+    //存放select 语句的 where 子句
+    char *where_clause[4] = {NULL};
+    //where 子句的长度
+    int  where_clause_len = 0;
+    //判断是否有输入限制条件
+    int  had_input = 0;
+    printf("注意: 当要求输入某项限制条件时,"
+            "直接回车表示不对此项进行限制!\n");
+    printf("请输入学生所在专业: ");
+    fgets_remove_newline(speciality, sizeof(speciality), stdin);
+    printf("请输入学生所在班级: ");
+    fgets_remove_newline(class, sizeof(class), stdin);
+    printf("请输入学生姓名: ");
+    fgets_remove_newline(stu_name, sizeof(stu_name), stdin);
+    printf("请输入学生学号: ");
+    fgets_remove_newline(id, sizeof(id), stdin);
+
+    if(speciality[0]) {
+        where_clause[0] = (char *)malloc(strlen(" WHERE 专业=''")
+                + strlen(speciality) + 1);
+        sprintf(where_clause[0], " WHERE 专业='%s'", speciality);
+        where_clause_len += strlen(where_clause[0]);
+        had_input = 1;
+    }
+    if(class[0]) {
+        where_clause[1] = (char *)malloc(
+                had_input ? strlen(" AND ") : strlen(" WHERE ")
+                + strlen("班级=''")
+                + strlen(class) + 1);
+        sprintf(where_clause[1], "%s班级='%s'",
+                had_input ? " AND " : " WHERE ",
+                class);
+        where_clause_len += strlen(where_clause[1]);
+        had_input = 1;
+    }
+    if(stu_name[0]) {
+        where_clause[2] = (char *)malloc(
+                had_input ? strlen(" AND ") : strlen(" WHERE ")
+                + strlen("姓名=''")
+                + strlen(stu_name) + 1);
+        sprintf(where_clause[2], "%s姓名='%s'",
+                had_input ? " AND " : " WHERE ",
+                stu_name);
+        where_clause_len += strlen(where_clause[2]);
+        had_input = 1;
+    }
+    if(id[0]) {
+        where_clause[3] = (char *)malloc(
+                had_input ? strlen(" AND ") : strlen(" WHERE ")
+                + strlen(id) + 1);
+        sprintf(where_clause[3], "%s学号='%s'",
+                had_input ? " AND " : " WHERE ",
+                id);
+        where_clause_len += strlen(where_clause[3]);
+        had_input = 1;
+    }
+    if(had_input == 0) {
+        fprintf(stderr, "没有输入任何限制条件,"
+                "是否输出全部学生信息?(y/n): ");
+        char answer = getchar();
+        clean_input_stream();
+        if(toupper(answer) != 'Y') {
+            printf("取消查询\n");
+            return;
+        }
+    }
+    char *sql_select_student = (char *)malloc(
+            strlen(select_student_header)
+            + where_clause_len
+            + 1
+            );
+    sprintf(sql_select_student, "%s%s%s%s%s", select_student_header,
+            where_clause[0] ? where_clause[0] : "",
+            where_clause[1] ? where_clause[1] : "",
+            where_clause[2] ? where_clause[2] : "",
+            where_clause[3] ? where_clause[3] : "");
+    printf("sql_select_student is:\n%s\n",
+            sql_select_student);
+    if(mysql_query(&sql_connection, sql_select_student)) {
+        fprintf(stderr, "查询失败\n%s\n", mysql_error(&sql_connection));
+        return;
+    }
+    free(sql_select_student);
+    if(had_input) {
+        for(int i = 0; i < 4; ++i)
+            if(where_clause[i])
+                free(where_clause[i]);
+    }
+    MYSQL_RES *result = mysql_store_result(&sql_connection);
+    if(!result) {
+        fprintf(stderr, "查询失败\n%s\n",
+                mysql_error(&sql_connection));
+        return;
+    }
+    my_ulonglong num_rows = mysql_num_rows(result);
+    if(num_rows == 0)
+        fprintf(stderr, "没有找到符合条件的学生\n");
+    else {
+        MYSQL_FIELD *fields = mysql_fetch_fields(result);
+        unsigned int num_fields = mysql_num_fields(result);
+        //存放输出学生信息时每列的宽度
+        unsigned int widthes[num_fields];
+        for(unsigned int i = 0; i < num_fields; ++i) {
+            widthes[i] =
+                fields[i].name_length > fields[i].max_length
+                ? fields[i].name_length : fields[i].max_length;
+            printf("%d ", widthes[i]);
+        }
+        printf("\n");
+        printf("总共找到%llu名符合条件的学生\n", num_rows);
+        //print table header
+        for(unsigned int i = 0; i < num_fields; ++i)
+            printf("| %*s ", widthes[i], fields[i].name);
+        printf("|\n");
+        MYSQL_ROW row;
+        while((row = mysql_fetch_row(result))) {
+            for(unsigned int i = 0; i < num_fields; ++i)
+                printf("| %*s ", widthes[i], row[i]);
+            printf("|\n");
+        }
+    }
+}
+
+static void query_score()
+{
+    while(1) {
+        int option = -1; //initialize with a invalid value
+        printf("    + + + + + + + + + + + + + + + +\n"
+               "    +       欢迎进入成绩查询界面  +\n"
+               "    +                             +\n"
+               "    +      1):班级总成绩排名查询  +\n"
+               "    +      2):课程成绩排名查询    +\n"
+               "    +      3):返回上一级          +\n"
+               "    + + + + + + + + + + + + + + + +\n");
+        printf("请选择合适的选项(输入相应的数字): ");
+        scanf("%d", &option);
+        clean_input_stream();
+        switch(option) {
+            case 1:
+                {
+                    char speciality[SPECIALITY_LEN + 1];
+                    char class[CLASS_LEN + 1];
+                    char *select_score_header =
+                        "select student.学号, 姓名, sum(grade) as 总分 "
+                        "from student, grade "
+                        "where student.学号 = grade.学号 ";
+                    char *speciality_pair = NULL; // " and 专业 = 'speciality'"
+                    char *class_pair = NULL; // " and 班级 = 'class'"
+                    char *select_score_tail =
+                        "group by 学号 order by 总分 desc ";
+                    //" limit row_count_str"
+                    printf("请输入专业名: ");
+                    while(1) {
+                        fgets_remove_newline(speciality, sizeof(speciality), stdin);
+                        if(speciality[0]) {
+                            char *pair = (char *)malloc(strlen("and 专业 ='' ")
+                                    + strlen(speciality) + 1);
+                            if(pair == NULL) {
+                                fprintf(stderr, "内存分配出错\n");
+                                exit(1);
+                            }
+                            sprintf(pair, "and 专业 = '%s' ", speciality);
+                            speciality_pair = pair;
+                            break;
+                        } else
+                            printf("专业名不能为空，请重新输入: ");
+                    }
+                    printf("请输入班级名: ");
+                    while(1) {
+                        fgets_remove_newline(class, sizeof(class), stdin);
+                        if(class[0]) {
+                            char *pair = (char *)malloc(strlen("and 班级 = '' ")
+                                    + strlen(class) + 1);
+                            sprintf(pair, "and 班级 = '%s' ", class);
+                            class_pair = pair;
+                            break;
+                        } else
+                            printf("班级名不能为空，请重新输入: ");
+                    }
+                    printf("注意:直接回车表示输出全部学生成绩\n"
+                            "请问要输出前多少名学生的成绩: ");
+                    char row_count_str[10] = "";
+                    int row_count = 0;
+                    char **invalid_char = NULL;
+                    while(1) {
+                        fgets_remove_newline(row_count_str,
+                                sizeof(row_count_str), stdin);
+                        if(row_count_str[0] == 0) //output all students
+                            break;
+                        row_count = strtol(row_count_str, invalid_char, 10);
+                        if(row_count > 0) {
+                            //truncating the invalid string
+                            **invalid_char = '\0';
+                            break;
+                        }
+                        printf("输入有误，请重新输入: \n");
+                    }
+                    char *sql_select_score = (char*)malloc(
+                            strlen(select_score_header)
+                            + strlen(speciality_pair)
+                            + strlen(class_pair)
+                            + strlen(select_score_tail)
+                            + (row_count ?
+                                strlen("limit ") + strlen(row_count_str) : 0)
+                            + 1
+                            );
+                    if(sql_select_score == NULL) {
+                        fprintf(stderr, "malloc: 内存分配失败\n");
+                        exit(1);
+                    }
+                    sprintf(sql_select_score, "%s%s%s%s",
+                            select_score_header,
+                            speciality_pair,
+                            class_pair,
+                            select_score_tail);
+                    free(speciality_pair);
+                    free(class_pair);
+                    if(row_count) {
+                        strcat(sql_select_score, "limit ");
+                        printf("row_count_str is %s\n", row_count_str);
+                        strcat(sql_select_score, row_count_str);
+                    }
+                    if(mysql_query(&sql_connection, sql_select_score)) {
+                        fprintf(stderr, "查询失败\n%s\n",
+                                mysql_error(&sql_connection));
+                        exit(1);
+                    }
+                    free(sql_select_score);
+                    MYSQL_RES *result = mysql_store_result(&sql_connection);
+                    if(!result) {
+                        fprintf(stderr, "查询失败\n%s\n",
+                                mysql_error(&sql_connection));
+                        break;
+                    }
+                    my_ulonglong num_rows = mysql_num_rows(result);
+                    if(num_rows == 0)
+                        fprintf(stderr, "没有该班的学生成绩信息\n");
+                    else {
+                        MYSQL_FIELD *fields = mysql_fetch_fields(result);
+                        unsigned int num_fields = mysql_num_fields(result);
+                        //存放输出学生信息时每列的宽度
+                        unsigned int widthes[num_fields];
+                        for(unsigned int i = 0; i < num_fields; ++i)
+                            widthes[i] =
+                                fields[i].name_length > fields[i].max_length
+                                ? fields[i].name_length : fields[i].max_length;
+                        //print table header
+                        printf("| 排名 ");
+                        for(unsigned int i = 0; i < num_fields; ++i)
+                            printf("| %*s ", widthes[i], fields[i].name);
+                        printf("\n");
+                        MYSQL_ROW row;
+                        int rank = 0;
+                        while((row = mysql_fetch_row(result))) {
+                                printf("| %4d ", ++rank); //自己添加排名序号
+                            for(unsigned int i = 0; i < num_fields; ++i)
+                                printf("| %*s ", widthes[i], row[i]);
+                            printf("|\n");
+                        }
+                    }
+                }
+                break;
+            case 2:
+                {
+                    char course[COURSE_NAME_LEN + 1];
+                    char *select_score_header =
+                        "select student.学号, 姓名, grade as 分数 "
+                        "from student, grade, course "
+                        "where student.学号=grade.学号 "
+                        "and grade.Cid = course.Cid "
+                        "and Cname = ";
+                    char *select_score_tail = " order by 分数 desc ";
+                    //" limit row_count_str"
+                    printf("请输入课程名: ");
+                    while(1) {
+                        fgets_remove_newline(course, sizeof(course), stdin);
+                        if(course[0]) //had input course name
+                            break;
+                        printf("课程名不能为空，请重新输入: ");
+                    }
+                    printf("注意:直接回车表示输出全部学生成绩\n"
+                            "请问要输出前多少名学生的成绩: ");
+                    char row_count_str[10] = "";
+                    int row_count = 0;
+                    char **invalid_char = NULL;
+                    while(1) {
+                        fgets_remove_newline(row_count_str,
+                                sizeof(row_count_str), stdin);
+                        if(row_count_str[0] == 0) //output all students
+                            break;
+                        row_count = strtol(row_count_str, invalid_char, 10);
+                        if(row_count > 0) {
+                            //truncating the invalid string
+                            **invalid_char = '\0';
+                            break;
+                        }
+                        printf("输入有误，请重新输入: \n");
+                    }
+                    char *sql_select_score = (char*)malloc(
+                            strlen(select_score_header)
+                            + strlen(course) + 2 //要算上单引号
+                            + strlen(select_score_tail)
+                            + (row_count ?
+                              strlen("limit ") + strlen(row_count_str) : 0)
+                            + 1);
+                    sprintf(sql_select_score, "%s'%s'%s",
+                            select_score_header,
+                            course,
+                            select_score_tail);
+                    if(row_count) {
+                        strcat(sql_select_score, "limit ");
+                        strcat(sql_select_score, row_count_str);
+                    }
+                    printf("sql_select_score is\n%s\n", sql_select_score);
+                    if(mysql_query(&sql_connection, sql_select_score)) {
+                        fprintf(stderr, "查询失败\n%s\n",
+                                mysql_error(&sql_connection));
+                        break;
+                    }
+                    free(sql_select_score);
+                    MYSQL_RES *result = mysql_store_result(&sql_connection);
+                    if(!result) {
+                        fprintf(stderr, "查询失败\n%s\n",
+                                mysql_error(&sql_connection));
+                        break;
+                    }
+                    my_ulonglong num_rows = mysql_num_rows(result);
+                    if(num_rows == 0)
+                        fprintf(stderr, "没有该课程的学生成绩信息\n");
+                    else {
+                        MYSQL_FIELD *fields = mysql_fetch_fields(result);
+                        unsigned int num_fields = mysql_num_fields(result);
+                        //存放输出成绩信息时每列的宽度
+                        unsigned int widthes[num_fields];
+                        for(unsigned int i = 0; i < num_fields; ++i)
+                            widthes[i] =
+                                fields[i].name_length > fields[i].max_length
+                                ? fields[i].name_length : fields[i].max_length;
+                        //print table header
+                        printf("| 排名 ");
+                        for(unsigned int i = 0; i < num_fields; ++i)
+                            printf("| %*s ", widthes[i], fields[i].name);
+                        printf("|\n");
+                        MYSQL_ROW row;
+                        int rank = 0;
+                        while((row = mysql_fetch_row(result))) {
+                                printf("| %4d ", ++rank); //自己添加排名序号
+                            for(unsigned int i = 0; i < num_fields; ++i)
+                                printf("| %*s ", widthes[i], row[i]);
+                            printf("|\n");
+                        }
+                    }
+                }
+                break;
+            case 3:
+                return;
+            default:
+                printf("输入有误, 请重新输入\n");
+                break;
+        }
+    }
 }
