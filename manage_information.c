@@ -114,22 +114,22 @@ static void add_information()
                 "%s'%s','%s','%s',", sql_insert_header, id, name, sex);
         if(speciality[0])
             sprintf(insert_statement + strlen(insert_statement),
-                    "'%s‘,", speciality);
+                    "'%s',", speciality);
         else
             strcat(insert_statement, "NULL,");
         if(class[0])
             sprintf(insert_statement + strlen(insert_statement),
-                    "'%s‘,", class);
+                    "'%s',", class);
         else
             strcat(insert_statement, "NULL,");
         if(tel_number[0])
             sprintf(insert_statement + strlen(insert_statement),
-                    "'%s‘,", tel_number);
+                    "'%s',", tel_number);
         else
             strcat(insert_statement, "NULL,");
         if(address[0])
             sprintf(insert_statement + strlen(insert_statement),
-                    "'%s‘,",address);
+                    "'%s',",address);
         else
             strcat(insert_statement, "NULL,");
         //change trailing comma to parentheses

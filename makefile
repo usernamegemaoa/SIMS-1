@@ -24,3 +24,6 @@ statistic.o: statistic.c project.h
 	$(CC) -o $@  $(CFLAGS) -c $(MYSQL_COMPILE) statistic.c
 system_setting.o: system_setting.c project.h
 	$(CC) -o $@  $(CFLAGS) -c $(MYSQL_COMPILE) system_setting.c
+.PHONY: clean
+clean:
+	rm -f *.o

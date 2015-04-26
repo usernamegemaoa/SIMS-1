@@ -103,5 +103,8 @@ void set_print_width(MYSQL_RES *result, int rows, int cols, int print_width[rows
                 max_print_width[j] = str_len[i][j] - num_chinese_word[i][j];
         }
     }
+    for(int i = 0; i < rows; i++)
+        for(int j = 0; j < cols; j++)
+            print_width[i][j] = max_print_width[j] + num_chinese_word[i][j];
     mysql_data_seek(result, 0);
 }

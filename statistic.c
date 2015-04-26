@@ -210,16 +210,16 @@ static void query_grade()
                             "请问要输出前多少名学生的成绩: ");
                     char row_count_str[10] = "";
                     int row_count = 0;
-                    char **invalid_char = NULL;
+                    char *invalid_char = NULL;
                     while(1) {
                         Fgets_stdin(row_count_str,
                                 sizeof(row_count_str));
                         if(row_count_str[0] == 0) //output all students
                             break;
-                        row_count = strtol(row_count_str, invalid_char, 10);
+                        row_count = strtol(row_count_str, &invalid_char, 10);
                         if(row_count > 0) {
                             //truncating the invalid string
-                            **invalid_char = '\0';
+                            *invalid_char = '\0';
                             break;
                         }
                         printf("输入有误，请重新输入: \n");
@@ -307,16 +307,16 @@ static void query_grade()
                             "请问要输出前多少名学生的成绩: ");
                     char row_count_str[10] = "";
                     int row_count = 0;
-                    char **invalid_char = NULL;
+                    char *invalid_char = NULL;
                     while(1) {
                         Fgets_stdin(row_count_str,
                                 sizeof(row_count_str));
                         if(row_count_str[0] == 0) //output all students
                             break;
-                        row_count = strtol(row_count_str, invalid_char, 10);
+                        row_count = strtol(row_count_str, &invalid_char, 10);
                         if(row_count > 0) {
                             //truncating the invalid string
-                            **invalid_char = '\0';
+                            *invalid_char = '\0';
                             break;
                         }
                         printf("输入有误，请重新输入: \n");
