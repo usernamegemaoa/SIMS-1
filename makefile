@@ -1,11 +1,8 @@
 # compiler
 CC = gcc
 
-#development options for CC
-CFLAGS = -g -std=c99 -Wall
-
 #release options for CC
-#CFLAGS =  -std=c99 -Wall
+CFLAGS = -std=c99 -Wall
 
 # MYSQL program compile option
 MYSQL_COMPILE = $(shell mysql_config --cflags)

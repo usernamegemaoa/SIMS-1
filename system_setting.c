@@ -1,19 +1,4 @@
-/*
- * 记得把execl中的mysql改为软编码，即将main.c中的user_name
- * 包含到project.h中
- */
-#include <ctype.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <fcntl.h>
 #include "project.h"
-
-#define CURRENT_USER "mysql"
-#define MAX_USER_NAME 16
-#define MAX_PASSWORD  16
 
 static void manage_user(void);
 static void backup_database(void);
@@ -61,9 +46,8 @@ void system_setting()
 static void manage_user()
 {
     //the user name to add or delete
-    char user_name[MAX_USER_NAME + 1];
-    //new password
-    char password[MAX_PASSWORD + 1];
+    char user_name[USER_NAME_LEN + 1];
+    char new_passwd[PASSWD_LEN + 1];
 
     while(1) {
         int option = -1; //initialized with a invalid value
@@ -84,55 +68,57 @@ static void manage_user()
                     printf("要求输入用户名时直接回车表示修改自己的密码\n"
                            "注意: 需要管理员权限才能修改其他用户的密码\n"
                            "是否继续？(y/n): ");
-                    char answer = getchar();
-                    clean_input_stream();
-                    if(toupper(answer) != 'Y')
+                    if(is_no())
                         break;
-                    printf("请输入用户名: ");
-                    fgets_remove_newline(user_name, sizeof(user_name), stdin);
-                    printf("请输入新密码: ");
-                    fgets_remove_newline(password, sizeof(password), stdin);
-                    //set password for 'username'@'localhost' = password('pw')
-                    char sql_set_passwd[46 + MAX_USER_NAME + MAX_PASSWORD + 1];
+                    printf("请输入要修改密码的用户名: ");
+                    Fgets_stdin(user_name, sizeof(user_name));
+                    printf("请输入新密码(最长为%d位): ", PASSWD_LEN);
+                    Fgets_stdin(new_passwd, sizeof(new_passwd));
+                    char sql_set_passwd[strlen("SET PASSWORD FOR ''")
+                        + strlen(user_name)
+                        + strlen("@'localhost' = PASSWORD('')")
+                        + PASSWD_LEN + 1];
                     sprintf(sql_set_passwd,
                         "SET PASSWORD FOR '%s'@'localhost' = PASSWORD('%s')",
-                        user_name[0] ? user_name : CURRENT_USER,
-                        password);
-                    if(mysql_query(&sql_connection, sql_set_passwd)) {
+                        user_name[0] ? user_name : current_user,
+                        new_passwd);
+                    if(mysql_query(mysql, sql_set_passwd)) {
                         fprintf(stderr, "密码修改失败\n%s\n",
-                                mysql_error(&sql_connection));
+                                mysql_error(mysql));
                     } else
                         printf("成功修改%s的密码\n",
-                                user_name[0] ? user_name : CURRENT_USER);
+                                user_name[0] ? user_name : current_user);
                 }
                 break;
             case 2:
                 {
-                    //create user 'username'@'localhost' identified by 'passwd'
-                    char sql_create_user[43 + MAX_USER_NAME + MAX_PASSWORD + 1];
-                    //grant all on Cexperiment.* TO 'username'@'localhost'
-                    char sql_grant[44 + MAX_USER_NAME + 1];
-
-                    printf("注意: 需要管理员权限才能添加用户,是否继续?(y/n): ");
-                    char answer = getchar();
-                    clean_input_stream();
-                    if(toupper(answer) != 'Y')
+                    printf("注意: 需要管理员权限才能添加用户,"
+                            "是否继续?(y/n): ");
+                    if(is_no())
                         break;
-                    printf("请输入用户名(长度不大于%d): ", MAX_USER_NAME);
-                    fgets_remove_newline(user_name, sizeof(user_name), stdin);
-                    printf("请输入新用户(%s)的密码(长度不大于%d): ",
-                            user_name, MAX_PASSWORD);
-                    fgets_remove_newline(password, sizeof(password), stdin);
+                    printf("请输入用户名(最长为%d位): ", USER_NAME_LEN);
+                    Fgets_stdin(user_name, sizeof(user_name));
+                    printf("请输入新用户(%s)的密码(最长为%d位): ",
+                            user_name, PASSWD_LEN);
+                    Fgets_stdin(new_passwd, sizeof(new_passwd));
+
+                    char sql_create_user[strlen("CREATE USER ''")
+                        + strlen(user_name)
+                        + strlen("@'localhost' IDENTIFIED BY ''")
+                        + strlen(new_passwd) + 1];
                     sprintf(sql_create_user,
                             "CREATE USER '%s'@'localhost' IDENTIFIED BY '%s'",
-                            user_name, password);
+                            user_name, new_passwd);
+                    char sql_grant[strlen("GRANT ALL ON ")
+                        + strlen(DATABASE) + strlen(".* TO ''")
+                        + strlen(user_name) + strlen("@'localhost'") + 1];
                     sprintf(sql_grant,
-                            "GRANT ALL ON CExperiment.* TO '%s'@'localhost'",
-                            user_name);
-                    if(mysql_query(&sql_connection, sql_create_user)
-                            || mysql_query(&sql_connection, sql_grant)) {
+                            "GRANT ALL ON %s.* TO '%s'@'localhost'",
+                            DATABASE, user_name);
+                    if(mysql_query(mysql, sql_create_user)
+                            || mysql_query(mysql, sql_grant)) {
                         fprintf(stderr, "用户添加失败\n%s\n",
-                                mysql_error(&sql_connection));
+                                mysql_error(mysql));
                     } else
                         printf("用户添加成功\n");
                 }
@@ -140,19 +126,21 @@ static void manage_user()
             case 3:
                 {
                     //drop user 'username'@'localhost'
-                    char sql_drop_user[24 + MAX_USER_NAME + 1];
-                    printf("注意: 需要管理员权限才能删除用户,是否继续？(y/n): ");
-                    char answer = getchar();
-                    clean_input_stream();
-                    if(toupper(answer) != 'Y')
+                    printf("注意: 需要管理员权限才能删除用户,"
+                            "是否继续?(y/n): ");
+                    if(is_no()) {
+                        printf("取消删除用户\n");
                         break;
+                    }
                     printf("请输入用户名: ");
-                    fgets_remove_newline(user_name, sizeof(user_name), stdin);
+                    Fgets_stdin(user_name, sizeof(user_name));
+                    char sql_drop_user[strlen("DROP USER ''")
+                        + strlen(user_name) + strlen("@'localhost'") + 1];
                     sprintf(sql_drop_user, "DROP USER '%s'@'localhost'",
                             user_name);
-                    if(mysql_query(&sql_connection, sql_drop_user)) {
+                    if(mysql_query(mysql, sql_drop_user)) {
                         fprintf(stderr, "删除用户失败\n%s\n",
-                                mysql_error(&sql_connection));
+                                mysql_error(mysql));
                     } else
                         printf("成功删除%s\n", user_name);
                 }
@@ -168,22 +156,26 @@ static void manage_user()
 
 static void init_database()
 {
-    printf("该操作无法撤销，确定清空该数据库中的所有信息？(y/n): ");
-    char answer = getchar();
-    clean_input_stream();
-    if(toupper(answer) != 'Y')
+    printf("该操作无法撤销，确定清空该数据库中的所有信息?(y/n): ");
+    if(is_no()) {
+        printf("取消清空数据库\n");
         return;
-    mysql_autocommit(&sql_connection, 0);
-    mysql_query(&sql_connection, "DELETE FROM course");
-    mysql_query(&sql_connection, "DELETE FROM student");
-    mysql_query(&sql_connection, "DELETE FROM grade");
-    if(mysql_commit(&sql_connection)) {
-        fprintf(stderr, "初始化失败\n%s\n", mysql_error(&sql_connection));
-        if(mysql_rollback(&sql_connection))
-            fprintf(stderr, "回滚失败\n%s\n", mysql_error(&sql_connection));
+    }
+    //初始化有问题，有些表没有成功删除信息
+    if(mysql_autocommit(mysql, 0)) {
+        fprintf(stderr, "初始化失败,无法修改自动提交设置\n");
+        return;
+    }
+    mysql_query(mysql, "DELETE FROM course");
+    mysql_query(mysql, "DELETE FROM grade");
+    mysql_query(mysql, "DELETE FROM student");
+    if(mysql_commit(mysql)) {
+        fprintf(stderr, "初始化失败\n%s\n", mysql_error(mysql));
+        if(mysql_rollback(mysql))
+            fprintf(stderr, "回滚失败\n%s\n", mysql_error(mysql));
     } else
         printf("成功初始化数据库\n");
-    mysql_autocommit(&sql_connection, 1);
+    mysql_autocommit(mysql, 1);
 }
 
 static void backup_database()
@@ -191,14 +183,12 @@ static void backup_database()
     pid_t pid;
     char backup_file[100];
     printf("请输入备份文件名: ");
-    fgets_remove_newline(backup_file, sizeof(backup_file), stdin);
+    Fgets_stdin(backup_file, sizeof(backup_file));
     //test for existence of backup_file
     if(access(backup_file, F_OK) == 0) {
         fprintf(stderr, "%s文件已存在，是否覆盖原文件？(y/n)", backup_file);
-        char answer = getchar();
-        clean_input_stream();
-        if(toupper(answer) != 'Y') {
-            fprintf(stderr, "备份已取消\n");
+        if(is_no()) {
+            fprintf(stderr, "取消备份\n");
             return;
         }
     }
@@ -207,8 +197,16 @@ static void backup_database()
         perror("备份失败");
         return;
     } else if(pid) { //parent
-        waitpid(pid, NULL, 0);
-        printf("备份成功\n");
+        int status = 0;
+        if(wait(&status) > 0) { // wait on success
+            //even if wait on success, if exit status is non-zero,
+            //there was a error produced by mysqldump.
+            if(WIFEXITED(status) && !WEXITSTATUS(status))
+                printf("备份成功\n");
+            else
+                printf("备份失败\n");
+        } else //wait on error
+            perror("备份失败");
     } else { //child
         pid_t pipefd[2];
         if(pipe(pipefd)) {
@@ -223,8 +221,14 @@ static void backup_database()
             dup(pipefd[1]); //redirect stdout to pip[1]
             close(pipefd[0]);
             close(pipefd[1]);
-            execl("/usr/bin/mysqldump", "mysqldump", "-u", CURRENT_USER,
-                    "-p", "--databases", "CExperiment", (char *)0);
+            close(2);
+            char passwd_option[strlen("-p") + strlen(passwd) + 1];
+            sprintf(passwd_option, "-p%s", passwd);
+            if(execl("/usr/bin/mysqldump", "mysqldump", "-u", current_user,
+                    passwd_option, "--databases", DATABASE, (char *)0)) {
+                perror("无法备份");
+                exit(EXIT_FAILURE);
+            }
         } else { //grandson
             close(0);
             close(1);
@@ -234,7 +238,10 @@ static void backup_database()
             //return file desciptor 1(stdout)
             open(backup_file, O_WRONLY | O_CREAT | O_TRUNC,
                     S_IRUSR | S_IWUSR | S_IRGRP);
-            execl("/bin/gzip", "gzip", (char *)0);
+            if(execl("/bin/gzip", "gzip", (char *)0)) {
+                perror("备份压缩失败");
+                exit(EXIT_FAILURE);
+            }
         }
     }
 }
@@ -244,7 +251,7 @@ static void restore_database()
     pid_t pid;
     char backup_file[100];
     printf("请输入用于恢复数据库的文件名: ");
-    fgets_remove_newline(backup_file, sizeof(backup_file), stdin);
+    Fgets_stdin(backup_file, sizeof(backup_file));
     if(access(backup_file, F_OK)) {
         perror("恢复失败");
         return;
@@ -258,7 +265,14 @@ static void restore_database()
         perror("恢复失败");
         return;
     } else if(pid) {  //parent
-        waitpid(pid, NULL, 0);
+        int status = 0;
+        if(wait(&status) > 0) { // wait on success
+            if(WIFEXITED(status) && !WEXITSTATUS(status))
+                printf("恢复成功\n");
+            else
+                printf("恢复失败\n");
+        } else //wait on error
+            perror("恢复失败");
     } else {  //child
         pid_t pipefd[2];
         if(pipe(pipefd)) {
@@ -278,7 +292,8 @@ static void restore_database()
             dup(pipefd[1]); //redirect stdout to pipefd[1]
             close(pipefd[0]);
             close(pipefd[1]);
-            execl("/bin/gunzip", "gunzip", "-c", backup_file, (char *)0);
+            if(execl("/bin/gunzip", "gunzip", "-c", backup_file, (char *)0))
+                perror("文件格式有误\n");
         } else { //grandson
             /*
              * restore database
@@ -288,8 +303,11 @@ static void restore_database()
             dup(pipefd[0]);
             close(pipefd[0]);
             close(pipefd[1]);
-            execl("/usr/bin/mysql", "mysql", "-u", CURRENT_USER, "-p",
-                    "CExperiment", (char *)0);
+            close(2);
+            char passwd_option[strlen("-p") + strlen(passwd) + 1];
+            sprintf(passwd_option, "-p%s", passwd);
+            execl("/usr/bin/mysql", "mysql", "-u", current_user,
+                    passwd_option, DATABASE, (char *)0);
         }
     }
 }
