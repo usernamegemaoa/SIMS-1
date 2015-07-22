@@ -89,6 +89,7 @@ static void query_info()
     if(id[0]) {
         where_clause[3] = (char *)Malloc(
                 had_input ? strlen(" AND ") : strlen(" WHERE ")
+                + strlen("学号=''")
                 + strlen(id) + 1);
         sprintf(where_clause[3], "%s学号='%s'",
                 had_input ? " AND " : " WHERE ",

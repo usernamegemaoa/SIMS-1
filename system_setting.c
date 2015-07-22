@@ -73,7 +73,7 @@ static void manage_user()
                     printf("请输入要修改密码的用户名: ");
                     Fgets_stdin(user_name, sizeof(user_name));
                     printf("请输入新密码(最长为%d位): ", PASSWD_LEN);
-                    Fgets_stdin(new_passwd, sizeof(new_passwd));
+                    get_passwd(new_passwd, sizeof(new_passwd));
                     char sql_set_passwd[strlen("SET PASSWORD FOR ''")
                         + strlen(user_name)
                         + strlen("@'localhost' = PASSWORD('')")
@@ -100,7 +100,7 @@ static void manage_user()
                     Fgets_stdin(user_name, sizeof(user_name));
                     printf("请输入新用户(%s)的密码(最长为%d位): ",
                             user_name, PASSWD_LEN);
-                    Fgets_stdin(new_passwd, sizeof(new_passwd));
+                    get_passwd(new_passwd, sizeof(new_passwd));
 
                     char sql_create_user[strlen("CREATE USER ''")
                         + strlen(user_name)

@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <mysql.h>
+#include <termios.h>
 
 // the name of database
 #define DATABASE "Cexp"
@@ -55,4 +56,5 @@ extern void set_print_width(MYSQL_RES *result, int rows, int cols,
         int print_width[rows][cols]);
 extern void *Malloc(size_t size);
 extern int is_no(void);
+extern void get_passwd(char *dest, int size);
 #endif

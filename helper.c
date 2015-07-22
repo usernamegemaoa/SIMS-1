@@ -1,5 +1,28 @@
 #include "project.h"
-
+/*
+ * get passwd like *nix
+ */
+void get_passwd(char *dest, int size)
+{
+    if(size <= 0) {
+        fprintf(stderr, "密码长度至少为1, 请重新设置\n");
+        exit(1);
+    }
+    struct termios old_setting, new_setting;
+    if(tcgetattr(0, &old_setting)) {
+        perror("获取终端属性出错");
+        exit(1);
+    }
+    new_setting = old_setting;
+    new_setting.c_lflag &= ~ECHO;
+    if(tcsetattr(0, TCSAFLUSH, &new_setting)) {
+        perror("设置终端属性失败");
+        exit(1);
+    }
+    Fgets_stdin(dest, size);
+    tcsetattr(0, TCSANOW, &old_setting);
+    printf("\n");
+}
 /*
  * clean input buffer
  */
